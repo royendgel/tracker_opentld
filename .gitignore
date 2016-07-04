@@ -3,7 +3,7 @@ CMakeLists.txt.user
 .project
 CMakeCache.txt
 CMakeFiles
-Makefile
+~.o
 OpenTLDConfig.cmake
 TODO
 cmake_install.cmake
