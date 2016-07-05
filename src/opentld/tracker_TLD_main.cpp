@@ -198,7 +198,7 @@ process_TLD_detection(IplImage * img, double time_stamp)
 		}
 
 		sprintf(string1, "Time Stamp:%.2f,Confidence:%.2f, fps:%d, #numwindows:%d, %s", time_stamp,
-				g_tld_track->currConf, msg_last_fps, g_tld_track->detectorCascade->numWindows, learningString);
+				g_tld_track->currConf, disp_last_fps, g_tld_track->detectorCascade->numWindows, learningString);
 
 		CvScalar yellow = CV_RGB(255, 255, 0);
 		CvScalar blue = CV_RGB(0, 0, 255);
@@ -369,41 +369,45 @@ process_image(carmen_bumblebee_basic_stereoimage_message *msg)
 static void
 image_handler(carmen_bumblebee_basic_stereoimage_message* image_msg)
 {
-    static double last_timestamp = 0.0;
-    static double last_time = 0.0;
-    double time_now = carmen_get_time();
+	static double last_timestamp = 0.0;
+	static double last_time = 0.0;
+	double time_now = carmen_get_time();
 
-    if (!received_image)
-    {
-        received_image = 1;
-        last_timestamp = image_msg->timestamp;
-        last_time = time_now;
-    }
+	//Just process Rectified images
+	if (image_msg->isRectified)
+	{
 
-
-    if ((image_msg->timestamp - last_timestamp) > 1.0)
-    {
-        msg_last_fps = msg_fps;
-        msg_fps = 0;
-        last_timestamp = image_msg->timestamp;
-    }
-    msg_fps++;
-
-    if ((time_now - last_time) > 1.0)
-    {
-
-        disp_last_fps = disp_fps;
-        disp_fps = 0;
-        last_time = time_now;
-    }
-    disp_fps++;
+		if (!received_image)
+		{
+			received_image = 1;
+			last_timestamp = image_msg->timestamp;
+			last_time = time_now;
+		}
 
 
-    last_message = *image_msg;
+		if ((image_msg->timestamp - last_timestamp) > 1.0)
+		{
+			msg_last_fps = msg_fps;
+			msg_fps = 0;
+			last_timestamp = image_msg->timestamp;
+		}
+		msg_fps++;
 
-    process_image(image_msg);
-//    publish_bound_box(mensagem_Time, Confidence, bound_box, );
+		if ((time_now - last_time) > 1.0)
+		{
 
+			disp_last_fps = disp_fps;
+			disp_fps = 0;
+			last_time = time_now;
+		}
+		disp_fps++;
+
+
+		last_message = *image_msg;
+
+		process_image(image_msg);
+		//    publish_bound_box(mensagem_Time, Confidence, bound_box, );
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -439,24 +443,7 @@ read_parameters(int argc, char **argv, int camera)
     carmen_param_t param_list[] = {
         {(char*) bumblebee_string.c_str(), (char*) "width", CARMEN_PARAM_INT, &tld_image_width, 0, NULL},
         {(char*) bumblebee_string.c_str(), (char*) "height", CARMEN_PARAM_INT, &tld_image_height, 0, NULL},
-//        {(char*) bumblebee_string.c_str(), (char*) "fx", CARMEN_PARAM_DOUBLE, &fx_percent, 0, NULL},
-//        {(char*) bumblebee_string.c_str(), (char*) "fy", CARMEN_PARAM_DOUBLE, &fy_percent, 0, NULL},
-//        {(char*) bumblebee_string.c_str(), (char*) "cu", CARMEN_PARAM_DOUBLE, &cu_percent, 0, NULL},
-//        {(char*) bumblebee_string.c_str(), (char*) "cv", CARMEN_PARAM_DOUBLE, &cv_percent, 0, NULL},
 //
-//        {(char*) "sensor_board_1", (char*) "x", CARMEN_PARAM_DOUBLE, &(sensor_board_1_pose.position.x), 0, NULL},
-//        {(char*) "sensor_board_1", (char*) "y", CARMEN_PARAM_DOUBLE, &(sensor_board_1_pose.position.y), 0, NULL},
-//        {(char*) "sensor_board_1", (char*) "z", CARMEN_PARAM_DOUBLE, &(sensor_board_1_pose.position.z), 0, NULL},
-//        {(char*) "sensor_board_1", (char*) "roll", CARMEN_PARAM_DOUBLE, &(sensor_board_1_pose.orientation.roll), 0, NULL},
-//        {(char*) "sensor_board_1", (char*) "pitch", CARMEN_PARAM_DOUBLE, &(sensor_board_1_pose.orientation.pitch), 0, NULL},
-//        {(char*) "sensor_board_1", (char*) "yaw", CARMEN_PARAM_DOUBLE, &(sensor_board_1_pose.orientation.yaw), 0, NULL},
-//
-//        {(char*) camera_string.c_str(), (char*) "x", CARMEN_PARAM_DOUBLE, &(camera_pose.position.x), 0, NULL},
-//        {(char*) camera_string.c_str(), (char*) "y", CARMEN_PARAM_DOUBLE, &(camera_pose.position.y), 0, NULL},
-//        {(char*) camera_string.c_str(), (char*) "z", CARMEN_PARAM_DOUBLE, &(camera_pose.position.z), 0, NULL},
-//        {(char*) camera_string.c_str(), (char*) "roll", CARMEN_PARAM_DOUBLE, &(camera_pose.orientation.roll), 0, NULL},
-//        {(char*) camera_string.c_str(), (char*) "pitch", CARMEN_PARAM_DOUBLE, &(camera_pose.orientation.pitch), 0, NULL},
-//        {(char*) camera_string.c_str(), (char*) "yaw", CARMEN_PARAM_DOUBLE, &(camera_pose.orientation.yaw), 0, NULL}
     };
 //
     num_items = sizeof (param_list) / sizeof (param_list[0]);
@@ -471,25 +458,26 @@ main(int argc, char **argv)
 
     int camera = 0;
 
-    if (argc != 2)
+    if (argc != 3)
     {
-        fprintf(stderr, "%s: Wrong number of parameters. stereo requires 1 parameter and received %d. \n Usage: %s <camera_number>", argv[0], argc - 1, argv[0]);
+        fprintf(stderr, "%s: Wrong number of parameters. TLD requires 2 parameter and received %d. \n Usage: %s <camera_number> <camera_side(0-left; 1-right)\n>", argv[0], argc - 1, argv[0]);
         exit(1);
     }
 
     camera = atoi(argv[1]);
+    camera_side = atoi(argv[2]);
 
     carmen_ipc_initialize(argc, argv);
-
     carmen_param_check_version(argv[0]);
 
-//    read_parameters(argc, argv, camera);
+    read_parameters(argc, argv, camera);
     g_tld_track = new tld::TLD();
     g_gui = new tld::Gui;
 
     signal(SIGINT, shutdown_camera_view);
 
     inicialize_TLD_parameters();
+
     carmen_bumblebee_basic_subscribe_stereoimage(camera, NULL, (carmen_handler_t) image_handler, CARMEN_SUBSCRIBE_LATEST);
 
     carmen_ipc_dispatch();
