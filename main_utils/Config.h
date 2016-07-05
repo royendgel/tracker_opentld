@@ -24,10 +24,10 @@
 #include <string>
 
 #include <libconfig.h++>
+#include "../main_utils/Main.h"
+#include "../main_utils/Settings.h"
 
 #include "ImAcq.h"
-#include "Settings.h"
-#include "Main.h"
 
 namespace tld
 {

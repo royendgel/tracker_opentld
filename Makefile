@@ -1,20 +1,29 @@
-include ../../Makefile.conf
+include ../Makefile.conf
 
-MODULE_NAME = OpenTLD
-MODULE_COMMENT = OpenTLD
+MODULE_NAME = tracker_opentld
+MODULE_COMMENT = tracker_opentld
 
 LINK = g++
 
 CXXFLAGS += 
 CFLAGS += 
-IFLAGS +=  
-LFLAGS += 
-SUBDIRS += src
+IFLAGS += `pkg-config --cflags opencv` -I 3rdparty/cvblobs -I libopentld/mftracker -I libopentld/tld -I libopentld/imacq -I main_utils -I 3rdparty/libconfig
+LFLAGS += `pkg-config --libs opencv` -lopentld  -l3rdparty -lopencv_video -lparam_interface -lipc -lglobal -lbumblebee_basic_interface
+SUBDIRS += libopentld 3rdparty
 
-SOURCES =  
+SOURCES = tracker_opentld_main.cpp \
+	main_utils/Gui.cpp \
+    main_utils/Settings.cpp \
+	main_utils/Trajectory.cpp
+	
 PUBLIC_INCLUDES = 
 PUBLIC_LIBRARIES =  
-TARGETS = 
-PUBLIC_BINARIES = 
+TARGETS = tracker_opentld
+PUBLIC_BINARIES =
 
-include ../../Makefile.rules
+tracker_opentld: tracker_opentld_main.o \
+	main_utils/Gui.o \
+    main_utils/Settings.o \
+	main_utils/Trajectory.o
+
+include ../Makefile.rules

@@ -27,9 +27,9 @@
 #ifndef MAIN_H_
 #define MAIN_H_
 
+#include "../main_utils/Gui.h"
 #include "TLD.h"
 #include "ImAcq.h"
-#include "Gui.h"
 
 enum Retval
 {

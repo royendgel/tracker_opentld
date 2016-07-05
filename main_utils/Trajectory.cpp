@@ -17,7 +17,7 @@
 *
 */
 
-#include "Trajectory.h"
+#include "../main_utils/Trajectory.h"
 
 #include <cstdio>
 

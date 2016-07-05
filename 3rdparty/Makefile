@@ -1,7 +1,7 @@
-include ../../../../Makefile.conf
+include ../../Makefile.conf
 
-MODULE_NAME = OpenTLD/src/3rdparty
-MODULE_COMMENT = OpenTLD/src/3rdparty
+MODULE_NAME = tracker_opentld/3rdparty
+MODULE_COMMENT = tracker_opentld/3rdparty
 
 LINK = g++
 
@@ -46,4 +46,4 @@ lib3rdparty.a: cvblobs/BlobContour.o \
 	libconfig/strbuf.o \
 	libconfig/scanctx.o 
 
-include ../../../../Makefile.rules
+include ../../Makefile.rules

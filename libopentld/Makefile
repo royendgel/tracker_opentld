@@ -1,7 +1,7 @@
-include ../../../../Makefile.conf
+include ../../Makefile.conf
 
-MODULE_NAME = OpenTLD/src/libopentld
-MODULE_COMMENT = OpenTLD/src/libopentld
+MODULE_NAME = tracker_opentld/libopentld
+MODULE_COMMENT = tracker_opentld/libopentld
 
 LINK = g++
 
@@ -51,4 +51,4 @@ libopentld.a: imacq/ImAcq.o \
     tld/TLDUtil.o \
     tld/VarianceFilter.o
 
-include ../../../../Makefile.rules
+include ../../Makefile.rules

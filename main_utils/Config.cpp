@@ -17,9 +17,9 @@
 *
 */
 
-#include "Config.h"
+#include "../main_utils/Config.h"
 
-#include "Main.h"
+#include "../main_utils/Main.h"
 
 using namespace std;
 

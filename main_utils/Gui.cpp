@@ -24,11 +24,10 @@
  *      Author: clemensk
  */
 
-#include "Gui.h"
-
-#include "Main.h"
+#include "../main_utils/Gui.h"
 
 #include <string>
+#include "../main_utils/Main.h"
 
 using std::string;
 

@@ -23,13 +23,13 @@
  *      Author: Georg Nebehay
  */
 
-#include "Main.h"
+#include "../main_utils/Main.h"
 
-#include "Config.h"
+#include "../main_utils/Config.h"
+#include "../main_utils/Gui.h"
+#include "../main_utils/Trajectory.h"
 #include "ImAcq.h"
-#include "Gui.h"
 #include "TLDUtil.h"
-#include "Trajectory.h"
 
 using namespace tld;
 using namespace cv;

@@ -25,9 +25,9 @@
 #include <carmen/fused_odometry_interface.h>
 
 //OPENTLD
+#include "TLD.h"
 #include "Trajectory.h"
 #include "Gui.h"
-#include "TLD.h"
 
 using namespace cv;
 //using namespace std;

@@ -17,7 +17,7 @@
 *
 */
 
-#include "Settings.h"
+#include "../main_utils/Settings.h"
 
 using namespace std;
 
