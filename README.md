@@ -25,5 +25,5 @@ To know more about the OpenTLD by gnebehay this documentation of the internals a
 
 ## Compiling
 ### Linux (make)
-Navigate with the terminal to the build directory
+Navigate with the terminal to the directory
 * `make` build the project
