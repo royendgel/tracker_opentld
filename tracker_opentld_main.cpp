@@ -14,6 +14,9 @@
 #include <carmen/bumblebee_basic_interface.h>
 #include <carmen/bumblebee_basic_messages.h>
 
+#include <carmen/visual_tracker_interface.h>
+#include <carmen/visual_tracker_messages.h>
+
 #include <carmen/rotation_geometry.h>
 #include <carmen/fused_odometry_messages.h>
 #include <carmen/fused_odometry_interface.h>
@@ -48,6 +51,8 @@ static carmen_bumblebee_basic_stereoimage_message last_message;
 
 static int msg_fps = 0, msg_last_fps = 0; //message fps
 static int disp_fps = 0, disp_last_fps = 0; //display fps
+
+static carmen_visual_tracker_output_message message_output;
 
 enum Retval
 {
@@ -111,6 +116,21 @@ std::vector<carmen_rddf_annotation_message> annotations;
 // Publishers                                                                                //
 //                                                                                           //
 ///////////////////////////////////////////////////////////////////////////////////////////////
+
+
+void
+publish_visual_tracker_output_message()
+{
+	IPC_RETURN_TYPE err;
+	err = IPC_publishData(CARMEN_VISUAL_TRACKER_OUTPUT_MESSAGE_NAME, &message_output);
+	carmen_test_ipc_exit(err, "Could not publish", CARMEN_VISUAL_TRACKER_OUTPUT_MESSAGE_NAME);
+}
+
+void
+carmen_visual_tracker_define_messages()
+{
+	carmen_visual_tracker_define_message_output();
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -301,15 +321,7 @@ process_TLD_detection(IplImage * img, double time_stamp)
 				g_tld_track->selectObject(grey, &r);
 			}
 		}
-
 	}
-//	verificar isso ai pra publicar
-	if(g_tld_track->currBB != NULL)
-	{
-		printf("%lf %.2d %.2d %.2d %.2d %f\n", time_stamp, g_tld_track->currBB->x,
-				g_tld_track->currBB->y, g_tld_track->currBB->width, g_tld_track->currBB->height, g_tld_track->currConf);
-	}
-
 }
 
 static void
@@ -330,7 +342,7 @@ process_image(carmen_bumblebee_basic_stereoimage_message *msg)
     rgb_image = cvCreateImage(cvSize(msg->width, msg->height), IPL_DEPTH_8U, BUMBLEBEE_BASIC_VIEW_NUM_COLORS);
 
     //TODO(verifica qual camera(essquerda ou direita) foi escolhida)
-    if (camera_side == 1)
+    if (camera_side == 0)
     	src_image->imageData = (char*) msg->raw_left;
     else
     	src_image->imageData = (char*) msg->raw_right;
@@ -338,7 +350,7 @@ process_image(carmen_bumblebee_basic_stereoimage_message *msg)
 
     cvtColor(cvarrToMat(src_image), cvarrToMat(rgb_image), cv::COLOR_RGB2BGR);
 //    TODO verificar quando fazer o resize
-    resized_rgb_image = cvCreateImage(cvSize(tld_image_width , tld_image_height), rgb_image->depth, rgb_image->nChannels);
+    resized_rgb_image = cvCreateImage(cvSize(640 , 480), rgb_image->depth, rgb_image->nChannels);
 
     cvResize(rgb_image, resized_rgb_image);
     CvFont font;
@@ -372,6 +384,7 @@ image_handler(carmen_bumblebee_basic_stereoimage_message* image_msg)
 	static double last_timestamp = 0.0;
 	static double last_time = 0.0;
 	double time_now = carmen_get_time();
+	bounding_box box_detected;
 
 	//Just process Rectified images
 	if (image_msg->isRectified)
@@ -406,7 +419,25 @@ image_handler(carmen_bumblebee_basic_stereoimage_message* image_msg)
 		last_message = *image_msg;
 
 		process_image(image_msg);
-		//    publish_bound_box(mensagem_Time, Confidence, bound_box, );
+
+		if (g_tld_track->currBB != NULL)
+		{
+			box_detected.x = g_tld_track->currBB->x;
+			box_detected.y = g_tld_track->currBB->y;
+			box_detected.width = g_tld_track->currBB->width;
+			box_detected.height = g_tld_track->currBB->width;
+
+			message_output.rect = box_detected;
+			message_output.confidence = g_tld_track->currConf;
+			message_output.host = image_msg->host;
+			message_output.timestamp = image_msg->timestamp;
+
+			publish_visual_tracker_output_message();
+
+			//	verificar isso ai pra publicar
+				printf("%lf %.2d %.2d %.2d %.2d %lf\n", image_msg->timestamp, g_tld_track->currBB->x,
+						g_tld_track->currBB->y, g_tld_track->currBB->width, g_tld_track->currBB->height, message_output.confidence);
+		}
 	}
 }
 
@@ -421,7 +452,7 @@ shutdown_camera_view(int x)
     	delete g_gui;
         carmen_ipc_disconnect();
         printf("Disconnected from robot.\n");
-        exit(1);
+        exit(0);
     }
 }
 
@@ -477,6 +508,8 @@ main(int argc, char **argv)
     signal(SIGINT, shutdown_camera_view);
 
     inicialize_TLD_parameters();
+
+    carmen_visual_tracker_define_messages();
 
     carmen_bumblebee_basic_subscribe_stereoimage(camera, NULL, (carmen_handler_t) image_handler, CARMEN_SUBSCRIBE_LATEST);
 
