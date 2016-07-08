@@ -11,7 +11,7 @@ IFLAGS += `pkg-config --cflags opencv` -I 3rdparty/cvblobs -I libopentld/mftrack
 LFLAGS += `pkg-config --libs opencv` -lopentld  -l3rdparty -lopencv_video -lparam_interface -lipc -lglobal -lbumblebee_basic_interface -lvisual_tracker_interface
 SUBDIRS += libopentld 3rdparty
 
-SOURCES = tracker_opentld_main.cpp tracker_opentld_test.cpp \
+SOURCES = tracker_opentld_main.cpp \
 	main_utils/Gui.cpp \
     main_utils/Settings.cpp \
 	main_utils/Trajectory.cpp

@@ -27,7 +27,7 @@ typedef struct {
 	double timestamp; 				/* !!! obrigatory !!! */
 	char *host; 					/* !!! obrigatory !!! */
 
-} carmen_tracker_opentld_message;
+} carmen_tracker_opentld_boundbox_position_message;
 
 /* The message's name, will be used for message registration in IPC Central module */
 #define      CARMEN_TRACKER_OPENTLD_MESSAGE_NAME       "carmen_tracker_opentld_message"

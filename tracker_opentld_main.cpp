@@ -132,6 +132,41 @@ carmen_visual_tracker_define_messages()
 	carmen_visual_tracker_define_message_output();
 }
 
+void
+build_and_publish_message(char *host, double timestamp)
+{
+	bounding_box box_detected;
+	if (g_tld_track->currBB != NULL)
+	{
+		box_detected.x = g_tld_track->currBB->x;
+		box_detected.y = g_tld_track->currBB->y;
+		box_detected.width = g_tld_track->currBB->width;
+		box_detected.height = g_tld_track->currBB->width;
+
+		message_output.rect = box_detected;
+		message_output.confidence = g_tld_track->currConf;
+		message_output.host = host;
+		message_output.timestamp = timestamp;
+
+//		printf("%lf %.2d %.2d %.2d %.2d %lf\n", timestamp, g_tld_track->currBB->x,
+//				g_tld_track->currBB->y, g_tld_track->currBB->width, g_tld_track->currBB->height, message_output.confidence);
+	}
+	else
+	{
+		box_detected.x = -1;
+		box_detected.y = -1;
+		box_detected.width = -1;
+		box_detected.height = -1;
+
+		message_output.rect = box_detected;
+		message_output.confidence = -1.0;
+		message_output.host = host;
+		message_output.timestamp = timestamp;
+	}
+
+	publish_visual_tracker_output_message();
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
 void inicialize_TLD_parameters()
@@ -175,15 +210,6 @@ void inicialize_TLD_parameters()
 	}
 	g_gui->init();
 }
-//verificar isso ai pra publicar
-//if(tld->currBB != NULL)
-//{
-//	fprintf(resultsFile, "%d %.2d %.2d %.2d %.2d %f\n", imAcq->currentFrame - 1, tld->currBB->x, tld->currBB->y, tld->currBB->width, tld->currBB->height, tld->currConf);
-//}
-//else
-//{
-//	fprintf(resultsFile, "%d NaN NaN NaN NaN NaN\n", imAcq->currentFrame - 1);
-//}
 
 void
 process_TLD_detection(IplImage * img, double time_stamp)
@@ -217,8 +243,8 @@ process_TLD_detection(IplImage * img, double time_stamp)
 			strcpy(learningString, "Learning");
 		}
 
-		sprintf(string1, "Time Stamp:%.2f,Confidence:%.2f, fps:%d, #numwindows:%d, %s", time_stamp,
-				g_tld_track->currConf, disp_last_fps, g_tld_track->detectorCascade->numWindows, learningString);
+		sprintf(string1, "Time:%.2f,Confidence:%.2f, fps:%d, #numwindows:%d, %s", time_stamp,
+				g_tld_track->currConf, msg_last_fps, g_tld_track->detectorCascade->numWindows, learningString);
 
 		CvScalar yellow = CV_RGB(255, 255, 0);
 		CvScalar blue = CV_RGB(0, 0, 255);
@@ -249,7 +275,7 @@ process_TLD_detection(IplImage * img, double time_stamp)
 		}
 
 		CvFont font;
-		cvInitFont(&font, CV_FONT_HERSHEY_SIMPLEX, .5, .5, 0, 1, 8);
+		cvInitFont(&font, CV_FONT_HERSHEY_SIMPLEX, .4, .5, 0, 1, 8);
 		cvRectangle(img, cvPoint(0, 0), cvPoint(img->width, 50), black, CV_FILLED, 8, 0);
 		cvPutText(img, string1, cvPoint(25, 25), &font, white);
 
@@ -267,8 +293,6 @@ process_TLD_detection(IplImage * img, double time_stamp)
 		{
 			g_gui->showImage(img);
 			char key = g_gui->getKey();
-
-			if (key == 'q') return;
 
 			if (key == 't')
 				showTrajectory =  (showTrajectory) ? false : true;
@@ -332,6 +356,7 @@ process_image(carmen_bumblebee_basic_stereoimage_message *msg)
     IplImage *resized_rgb_image = NULL;
     static char msg_fps_string[256];
     static char disp_fps_string[256];
+
     if (tld_image_width == 0)
     {
     	tld_image_width = msg->width;
@@ -341,32 +366,21 @@ process_image(carmen_bumblebee_basic_stereoimage_message *msg)
     src_image = cvCreateImage(cvSize(msg->width, msg->height), IPL_DEPTH_8U, BUMBLEBEE_BASIC_VIEW_NUM_COLORS);
     rgb_image = cvCreateImage(cvSize(msg->width, msg->height), IPL_DEPTH_8U, BUMBLEBEE_BASIC_VIEW_NUM_COLORS);
 
-    //TODO(verifica qual camera(essquerda ou direita) foi escolhida)
     if (camera_side == 0)
     	src_image->imageData = (char*) msg->raw_left;
     else
     	src_image->imageData = (char*) msg->raw_right;
 
-
     cvtColor(cvarrToMat(src_image), cvarrToMat(rgb_image), cv::COLOR_RGB2BGR);
-//    TODO verificar quando fazer o resize
-    resized_rgb_image = cvCreateImage(cvSize(640 , 480), rgb_image->depth, rgb_image->nChannels);
 
-    cvResize(rgb_image, resized_rgb_image);
-    CvFont font;
-//    sprintf(msg_fps_string, "MSG_FPS: %d", msg_last_fps);
-//    sprintf(disp_fps_string, "DISP_FPS: %d", disp_last_fps);
-    cvInitFont(&font, CV_FONT_HERSHEY_SIMPLEX, 0.7, 0.7, 0, 1.0, CV_AA);
-//    cvPutText(rgb_image, msg_fps_string, cvPoint(10, 30), &font, cvScalar(255, 255, 0, 0));
-
-    //----Implementacoes do TLD
-    process_TLD_detection(resized_rgb_image, msg->timestamp);
-    //----FIM do TLD
-
-
-//    Show the image
-//    cvShowImage("TLD", resized_rgb_image);
-//    waitKey(5);
+    if (tld_image_width == msg->width && tld_image_height == msg->height)
+    	process_TLD_detection( rgb_image, msg->timestamp);
+    else
+    {
+    	resized_rgb_image = cvCreateImage(cvSize(tld_image_width , tld_image_height), rgb_image->depth, rgb_image->nChannels);
+    	cvResize(rgb_image, resized_rgb_image);
+    	process_TLD_detection(resized_rgb_image, msg->timestamp);
+    }
 
     cvReleaseImage(&rgb_image);
     cvReleaseImage(&resized_rgb_image);
@@ -384,7 +398,6 @@ image_handler(carmen_bumblebee_basic_stereoimage_message* image_msg)
 	static double last_timestamp = 0.0;
 	static double last_time = 0.0;
 	double time_now = carmen_get_time();
-	bounding_box box_detected;
 
 	//Just process Rectified images
 	if (image_msg->isRectified)
@@ -417,27 +430,11 @@ image_handler(carmen_bumblebee_basic_stereoimage_message* image_msg)
 
 
 		last_message = *image_msg;
-
 		process_image(image_msg);
 
-		if (g_tld_track->currBB != NULL)
-		{
-			box_detected.x = g_tld_track->currBB->x;
-			box_detected.y = g_tld_track->currBB->y;
-			box_detected.width = g_tld_track->currBB->width;
-			box_detected.height = g_tld_track->currBB->width;
-
-			message_output.rect = box_detected;
-			message_output.confidence = g_tld_track->currConf;
-			message_output.host = image_msg->host;
-			message_output.timestamp = image_msg->timestamp;
-
-			publish_visual_tracker_output_message();
-
-			//	verificar isso ai pra publicar
-				printf("%lf %.2d %.2d %.2d %.2d %lf\n", image_msg->timestamp, g_tld_track->currBB->x,
-						g_tld_track->currBB->y, g_tld_track->currBB->width, g_tld_track->currBB->height, message_output.confidence);
-		}
+		build_and_publish_message(image_msg->host, image_msg->timestamp);
+		double time_f = carmen_get_time() - time_now;
+		printf("tp: %lf \n", time_f);
 	}
 }
 
@@ -469,11 +466,11 @@ read_parameters(int argc, char **argv, int camera)
     std::string camera_string = "camera";
     camera_string.append(myStream.str());
 
-//    sprintf(bumblebee_string, "%s%d", "bumblebee_basic", camera);
+//   sprintf(bumblebee_string, "%s%d", "bumblebee_basic", camera);
 //
     carmen_param_t param_list[] = {
-        {(char*) bumblebee_string.c_str(), (char*) "width", CARMEN_PARAM_INT, &tld_image_width, 0, NULL},
-        {(char*) bumblebee_string.c_str(), (char*) "height", CARMEN_PARAM_INT, &tld_image_height, 0, NULL},
+        {(char*) "tracker_opentld_view", (char*) "width", CARMEN_PARAM_INT, &tld_image_width, 0, NULL},
+        {(char*) "tracker_opentld_view", (char*) "height", CARMEN_PARAM_INT, &tld_image_height, 0, NULL},
 //
     };
 //
