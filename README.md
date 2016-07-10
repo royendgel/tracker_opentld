@@ -11,10 +11,12 @@ To know more about the OpenTLD by gnebehay this documentation of the internals a
 * Visual_Tracker module
 
 ## Compiling
+
 After compile carmen
-This module publish the same messages of visual_tracker module (carmen_visual_tracker_output_message)
 
 Navigate with the terminal to the directory of Visual_Tracker Module
+This module publish the same messages of visual_tracker module (carmen_visual_tracker_output_message) because that is need compile it too
+
 ```bash
 cd $CARMEN_HOME/src/visual_tracker/
 make
@@ -52,11 +54,10 @@ Check the carmen-ford-escape.ini if you want modify some parameters
   tracker_opentld_detector_thetaN			0.5 --detector parameters
 ```
 
-Open run the Central:
-
+Run the Central:
 `./central`
 
-### Proccontrol options
+##### Proccontrol options
 These process alredy have the option to run tracker_opentld, check the camera_number before start.
 
 To use online
@@ -68,7 +69,7 @@ or play a log with camera using
 `./proccontrol process-volta_da_ufes_playback_viewer_3D.ini`
 
   
-### Command line options
+#### Command line options
 
 Connect and turn on a Bumbeblee camera
 
