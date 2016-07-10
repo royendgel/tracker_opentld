@@ -58,13 +58,9 @@ Run the Central:
 `./central`
 
 ##### Proccontrol options
-These process alredy have the option to run tracker_opentld, check the camera_number before start.
+This process alredy have the option to run tracker_opentld, check the camera_number before start.
 
-To use online
-
-`./proccontrol process-volta_da_ufes.ini`
-
-or play a log with camera using
+play a log with camera using
 
 `./proccontrol process-volta_da_ufes_playback_viewer_3D.ini`
 
@@ -78,7 +74,7 @@ Navigate with the terminal to the directory and run
 cd $CARMEN_HOME/src/tracker_opentld/
 ./tracker_opentld <camera_number> <camera_side (0-left; 1-right)>
 ```
-To see the published messages 
+To test and see the published messages on terminal
 ```bash
 ./tracker_opentld_test
 ```
