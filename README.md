@@ -12,12 +12,18 @@ To know more about the OpenTLD by gnebehay this documentation of the internals a
 
 ## Compiling
 After compile carmen
+This module publish the same messages of visual_tracker module (carmen_visual_tracker_output_message)
+
 Navigate with the terminal to the directory of Visual_Tracker Module
-`cd $CARMEN_HOME/src/visual_tracker/`
-`make`
+```bash
+cd $CARMEN_HOME/src/visual_tracker/
+make
+```
 Navigate with the terminal to the directory of this module Tracker_OpenTLD
-`cd $CARMEN_HOME/src/tracker_opentld/`
-`make`
+```bash
+cd $CARMEN_HOME/src/tracker_opentld/
+make
+```
 
 # Usage
 ## Keyboard shortcuts
@@ -33,6 +39,7 @@ Navigate with the terminal to the directory of this module Tracker_OpenTLD
 Check the carmen-ford-escape.ini if you want modify some parameters
 
 - Visual Tracker OpenTLD parameters
+```bash
   tracker_opentld_view_width				640 --window and image width (can be equal to bumbeblee)
   tracker_opentld_view_height				480 --window and image height (can be equal to bumbeblee)
   tracker_opentld_confidence_threshold	0.5 --Confidence detection threshold
@@ -43,27 +50,34 @@ Check the carmen-ford-escape.ini if you want modify some parameters
   tracker_opentld_detector_minSize		25 --minimum size of scanWindows
   tracker_opentld_detector_thetaP			0.65 --detector parameters
   tracker_opentld_detector_thetaN			0.5 --detector parameters
+```
 
-Open tree terminals and run:
+Open run the Central:
+
 `./central`
 
 ### Proccontrol options
 These process alredy have the option to run tracker_opentld, check the camera_number before start.
 
 To use online
+
 `./proccontrol process-volta_da_ufes.ini`
 
 or play a log with camera using
 
 `./proccontrol process-volta_da_ufes_playback_viewer_3D.ini`
 
-
   
 ### Command line options
 
 Connect and turn on a Bumbeblee camera
+
 Navigate with the terminal to the directory and run
-`tracker_opentld <camera_number> <camera_side (0-left; 1-right)>`
-
-
-The process-volta-
+```bash
+cd $CARMEN_HOME/src/tracker_opentld/
+./tracker_opentld <camera_number> <camera_side (0-left; 1-right)>
+```
+To see the published messages 
+```bash
+./tracker_opentld_test
+```
