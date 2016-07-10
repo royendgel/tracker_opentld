@@ -36,8 +36,8 @@ using namespace cv;
 //using namespace std;
 
 
-#define BUMBLEBEE_BASIC_VIEW_MAX_WINDOW_WIDTH 640
-#define BUMBLEBEE_BASIC_VIEW_MAX_WINDOW_HEIGHT 480
+#define TACKER_OPENTLD_MAX_WINDOW_WIDTH 640
+#define TACKER_OPENTLD_MAX_WINDOW_HEIGHT 480
 #define BUMBLEBEE_BASIC_VIEW_NUM_COLORS 3
 
 static int received_image = 0;
@@ -56,60 +56,34 @@ static carmen_visual_tracker_output_message message_output;
 
 enum Retval
 {
-    PROGRAM_EXIT = 0,
-    SUCCESS = 1
+	PROGRAM_EXIT = 0,
+	SUCCESS = 1
 };
 
 tld::TLD *g_tld_track;
 tld::Gui *g_gui;
+tld::DetectorCascade *detectorCascade = NULL;
 //TLD dowork things
-bool showOutput;
-bool showTrajectory;
-int trajectoryLength;
-const char *printResults = NULL;
-double threshold_tld;
+static bool showOutput;
+static bool showTrajectory;
+static int trajectoryLength;
+static double threshold_tld; //Detection threshold
 bool showForeground = false;
 bool showNotConfident = true;
-bool selectManually = 0;
+bool selectManually = false;
 int *initialBB;
-bool reinit = 0;
-bool exportModelAfterRun = false;
-bool loadModel = false;
-const char *modelPath = NULL;
-const char *modelExportFile = "model";
-int seed = 0;
+static int seed;
 static int current_frame = 0;
-const char *saveDir = ".";
 tld::Trajectory trajectory;
 bool skipProcessingOnce = false;
+static int detector_minScale;
+static int detector_maxScale;
+static int detector_numFeatures;
+static int detector_numTrees;
+static int detector_minSize;
+static double detector_thetaP;
+static double detector_thetaN;
 //-------------------
-
-//-------------------Configuracao TLD------------------------------
-
-
-
-//----------------------------------------------------
-
-
-//list
-//static vector<carmen_localize_ackerman_globalpos_message> lista_poses;
-static vector<carmen_fused_odometry_message> lista_poses;
-static vector<carmen_bumblebee_basic_stereoimage_message> lista_imagens;
-
-//values to draw annotation
-
-struct annotation
-{
-    double x;
-    double y;
-    double x1;
-    double y1;
-    double x2;
-    double y2;
-};
-std::vector<annotation> annotation_point;
-std::vector<carmen_rddf_annotation_message> annotations;
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 //                                                                                           //
@@ -148,8 +122,6 @@ build_and_publish_message(char *host, double timestamp)
 		message_output.host = host;
 		message_output.timestamp = timestamp;
 
-//		printf("%lf %.2d %.2d %.2d %.2d %lf\n", timestamp, g_tld_track->currBB->x,
-//				g_tld_track->currBB->y, g_tld_track->currBB->width, g_tld_track->currBB->height, message_output.confidence);
 	}
 	else
 	{
@@ -159,10 +131,12 @@ build_and_publish_message(char *host, double timestamp)
 		box_detected.height = -1;
 
 		message_output.rect = box_detected;
-		message_output.confidence = -1.0;
+		message_output.confidence = 0.0;
 		message_output.host = host;
 		message_output.timestamp = timestamp;
 	}
+
+	fprintf(stderr, "%lf %lf\n", message_output.timestamp, message_output.confidence);
 
 	publish_visual_tracker_output_message();
 }
@@ -171,22 +145,17 @@ build_and_publish_message(char *host, double timestamp)
 
 void inicialize_TLD_parameters()
 {
-//main
-	tld::DetectorCascade *detectorCascade = g_tld_track->detectorCascade;
+	//main
+	detectorCascade = g_tld_track->detectorCascade;
 	g_tld_track->trackerEnabled = true;
 	showOutput = true;
-	showTrajectory = true;
+	showTrajectory = false;
 	trajectoryLength = 10;
-	threshold_tld = 0.7;
 	showForeground = false;
 	showNotConfident = true;
 	g_tld_track->alternating = false;
 	g_tld_track->learningEnabled = true;
 	selectManually = false;
-	exportModelAfterRun = false;
-	modelExportFile = "model";
-	loadModel = false;
-	seed = 0;
 	srand(seed);
 	//	Detector
 	detectorCascade->varianceFilter->enabled = true;
@@ -194,20 +163,21 @@ void inicialize_TLD_parameters()
 	detectorCascade->nnClassifier->enabled = true;
 
 	// classifier
-	detectorCascade->useShift = true;
+	detectorCascade->useShift = true;//Sets scanwindows off by a percentage value of the window dimensions (specified in proportionalShift) rather than 1px.
 	detectorCascade->shift = 0.1;
-	detectorCascade->minScale = -10;
-	detectorCascade->maxScale = 10;
-	detectorCascade->minSize = 25;
-	detectorCascade->numTrees = 10;
-	detectorCascade->numFeatures = 13;
-	detectorCascade->nnClassifier->thetaTP = 0.65;
-	detectorCascade->nnClassifier->thetaFP = 0.5;
-	//dowork initial
+	detectorCascade->minScale = detector_minScale; //number of scales smaller than initial object size
+	detectorCascade->maxScale = detector_maxScale;//number of scales larger than initial object size
+	detectorCascade->minSize = detector_minSize;//minimum size of scanWindows
+	detectorCascade->numTrees = detector_numTrees;//
+	detectorCascade->numFeatures = detector_numFeatures;//
+	detectorCascade->nnClassifier->thetaTP = detector_thetaP;//
+	detectorCascade->nnClassifier->thetaFP = detector_thetaN;//
+
 	if (showTrajectory)
 	{
 		trajectory.init(trajectoryLength);
 	}
+	//Initialize the Graphic Interface
 	g_gui->init();
 }
 
@@ -232,7 +202,7 @@ process_TLD_detection(IplImage * img, double time_stamp)
 	}
 	int confident = (g_tld_track->currConf >= threshold_tld) ? 1 : 0;
 
-	if(showOutput || saveDir != NULL)
+	if(showOutput)
 	{
 		char string1[128];
 
@@ -243,7 +213,7 @@ process_TLD_detection(IplImage * img, double time_stamp)
 			strcpy(learningString, "Learning");
 		}
 
-		sprintf(string1, "Time:%.2f,Confidence:%.2f, fps:%d, #numwindows:%d, %s", time_stamp,
+		sprintf(string1, "Time:%.2f,Confidence:%.2f, FPS:%d, #numwindows:%d, %s", time_stamp,
 				g_tld_track->currConf, msg_last_fps, g_tld_track->detectorCascade->numWindows, learningString);
 
 		CvScalar yellow = CV_RGB(255, 255, 0);
@@ -351,40 +321,32 @@ process_TLD_detection(IplImage * img, double time_stamp)
 static void
 process_image(carmen_bumblebee_basic_stereoimage_message *msg)
 {
-    IplImage *src_image = NULL;
-    IplImage *rgb_image = NULL;
-    IplImage *resized_rgb_image = NULL;
-    static char msg_fps_string[256];
-    static char disp_fps_string[256];
+	IplImage *src_image = NULL;
+	IplImage *rgb_image = NULL;
+	IplImage *resized_rgb_image = NULL;
 
-    if (tld_image_width == 0)
-    {
-    	tld_image_width = msg->width;
-    	tld_image_height = msg->height;
-    }
+	src_image = cvCreateImage(cvSize(msg->width, msg->height), IPL_DEPTH_8U, BUMBLEBEE_BASIC_VIEW_NUM_COLORS);
+	rgb_image = cvCreateImage(cvSize(msg->width, msg->height), IPL_DEPTH_8U, BUMBLEBEE_BASIC_VIEW_NUM_COLORS);
 
-    src_image = cvCreateImage(cvSize(msg->width, msg->height), IPL_DEPTH_8U, BUMBLEBEE_BASIC_VIEW_NUM_COLORS);
-    rgb_image = cvCreateImage(cvSize(msg->width, msg->height), IPL_DEPTH_8U, BUMBLEBEE_BASIC_VIEW_NUM_COLORS);
+	if (camera_side == 0)
+		src_image->imageData = (char*) msg->raw_left;
+	else
+		src_image->imageData = (char*) msg->raw_right;
 
-    if (camera_side == 0)
-    	src_image->imageData = (char*) msg->raw_left;
-    else
-    	src_image->imageData = (char*) msg->raw_right;
+	cvtColor(cvarrToMat(src_image), cvarrToMat(rgb_image), cv::COLOR_RGB2BGR);
 
-    cvtColor(cvarrToMat(src_image), cvarrToMat(rgb_image), cv::COLOR_RGB2BGR);
+	if (tld_image_width == msg->width && tld_image_height == msg->height)
+		process_TLD_detection( rgb_image, msg->timestamp);
+	else
+	{
+		resized_rgb_image = cvCreateImage(cvSize(tld_image_width , tld_image_height), rgb_image->depth, rgb_image->nChannels);
+		cvResize(rgb_image, resized_rgb_image);
+		process_TLD_detection(resized_rgb_image, msg->timestamp);
+	}
 
-    if (tld_image_width == msg->width && tld_image_height == msg->height)
-    	process_TLD_detection( rgb_image, msg->timestamp);
-    else
-    {
-    	resized_rgb_image = cvCreateImage(cvSize(tld_image_width , tld_image_height), rgb_image->depth, rgb_image->nChannels);
-    	cvResize(rgb_image, resized_rgb_image);
-    	process_TLD_detection(resized_rgb_image, msg->timestamp);
-    }
-
-    cvReleaseImage(&rgb_image);
-    cvReleaseImage(&resized_rgb_image);
-    cvReleaseImage(&src_image);
+	cvReleaseImage(&rgb_image);
+	cvReleaseImage(&resized_rgb_image);
+	cvReleaseImage(&src_image);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -433,8 +395,8 @@ image_handler(carmen_bumblebee_basic_stereoimage_message* image_msg)
 		process_image(image_msg);
 
 		build_and_publish_message(image_msg->host, image_msg->timestamp);
-		double time_f = carmen_get_time() - time_now;
-		printf("tp: %lf \n", time_f);
+		//		double time_f = carmen_get_time() - time_now;
+		//		printf("tp: %lf \n", time_f);
 	}
 }
 
@@ -443,73 +405,72 @@ image_handler(carmen_bumblebee_basic_stereoimage_message* image_msg)
 static void
 shutdown_camera_view(int x)
 {
-    if (x == SIGINT)
-    {
-    	delete g_tld_track;
-    	delete g_gui;
-        carmen_ipc_disconnect();
-        printf("Disconnected from robot.\n");
-        exit(0);
-    }
+	if (x == SIGINT)
+	{
+		delete g_tld_track;
+		delete g_gui;
+		detectorCascade = NULL;
+		carmen_ipc_disconnect();
+		printf("Disconnected from robot.\n");
+		exit(0);
+	}
 }
 
 //
 static int
-read_parameters(int argc, char **argv, int camera)
+read_parameters(int argc, char **argv)
 {
-    int num_items;
+	int num_items;
 
-    std::string bumblebee_string = "bumblebee_basic";
-    std::ostringstream myStream;
-    myStream << camera << std::flush;
-    bumblebee_string.append(myStream.str());
-    std::string camera_string = "camera";
-    camera_string.append(myStream.str());
+	carmen_param_t param_list[] = {
+			{(char*) "tracker_opentld", (char*) "view_width", CARMEN_PARAM_INT, &tld_image_width, TACKER_OPENTLD_MAX_WINDOW_WIDTH, NULL},
+			{(char*) "tracker_opentld", (char*) "view_height", CARMEN_PARAM_INT, &tld_image_height, TACKER_OPENTLD_MAX_WINDOW_HEIGHT, NULL},
+			{(char*) "tracker_opentld", (char*) "confidence_threshold", CARMEN_PARAM_DOUBLE, &threshold_tld, 0, NULL},
+			{(char*) "tracker_opentld", (char*) "detector_minScale", CARMEN_PARAM_INT, &detector_minScale, 0, NULL},
+			{(char*) "tracker_opentld", (char*) "detector_maxScale", CARMEN_PARAM_INT, &detector_maxScale, 0, NULL},
+			{(char*) "tracker_opentld", (char*) "detector_numFeatures", CARMEN_PARAM_INT, &detector_numFeatures, 0.7, NULL},
+			{(char*) "tracker_opentld", (char*) "detector_numTrees", CARMEN_PARAM_INT, &detector_numTrees, 0, NULL},
+			{(char*) "tracker_opentld", (char*) "detector_minSize", CARMEN_PARAM_INT, &detector_minSize, 0, NULL},
+			{(char*) "tracker_opentld", (char*) "detector_thetaP", CARMEN_PARAM_DOUBLE, &detector_thetaP, 0, NULL},
+			{(char*) "tracker_opentld", (char*) "detector_thetaN", CARMEN_PARAM_DOUBLE, &detector_thetaN, 0, NULL}
+	};
 
-//   sprintf(bumblebee_string, "%s%d", "bumblebee_basic", camera);
-//
-    carmen_param_t param_list[] = {
-        {(char*) "tracker_opentld_view", (char*) "width", CARMEN_PARAM_INT, &tld_image_width, 0, NULL},
-        {(char*) "tracker_opentld_view", (char*) "height", CARMEN_PARAM_INT, &tld_image_height, 0, NULL},
-//
-    };
-//
-    num_items = sizeof (param_list) / sizeof (param_list[0]);
-    carmen_param_install_params(argc, argv, param_list, num_items);
-//
-    return 0;
+	num_items = sizeof (param_list) / sizeof (param_list[0]);
+	carmen_param_install_params(argc, argv, param_list, num_items);
+
+	return 0;
 }
 
 int
 main(int argc, char **argv)
 {
 
-    int camera = 0;
+	int camera = 0;
 
-    if (argc != 3)
-    {
-        fprintf(stderr, "%s: Wrong number of parameters. TLD requires 2 parameter and received %d. \n Usage: %s <camera_number> <camera_side(0-left; 1-right)\n>", argv[0], argc - 1, argv[0]);
-        exit(1);
-    }
+	if (argc != 3)
+	{
+		fprintf(stderr, "%s: Wrong number of parameters. tracker_opentld requires 2 parameter and received %d. \n Usage: %s <camera_number> <camera_side(0-left; 1-right)\n>", argv[0], argc - 1, argv[0]);
+		exit(1);
+	}
 
-    camera = atoi(argv[1]);
-    camera_side = atoi(argv[2]);
+	camera = atoi(argv[1]);
+	camera_side = atoi(argv[2]);
 
-    carmen_ipc_initialize(argc, argv);
-    carmen_param_check_version(argv[0]);
+	carmen_ipc_initialize(argc, argv);
+	carmen_param_check_version(argv[0]);
+	read_parameters(argc, argv);
 
-    read_parameters(argc, argv, camera);
-    g_tld_track = new tld::TLD();
-    g_gui = new tld::Gui;
+	g_tld_track = new tld::TLD();
+	g_gui = new tld::Gui;
 
-    signal(SIGINT, shutdown_camera_view);
+	signal(SIGINT, shutdown_camera_view);
 
-    inicialize_TLD_parameters();
+	inicialize_TLD_parameters();
 
-    carmen_visual_tracker_define_messages();
+	carmen_visual_tracker_define_messages();
 
-    carmen_bumblebee_basic_subscribe_stereoimage(camera, NULL, (carmen_handler_t) image_handler, CARMEN_SUBSCRIBE_LATEST);
+	carmen_bumblebee_basic_subscribe_stereoimage(camera, NULL, (carmen_handler_t) image_handler, CARMEN_SUBSCRIBE_LATEST);
 
-    carmen_ipc_dispatch();
+	carmen_ipc_dispatch();
 
 }
